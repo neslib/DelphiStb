@@ -1,0 +1,55 @@
+object FormMain: TFormMain
+  Left = 0
+  Top = 0
+  Caption = 'TrueType Test'
+  ClientHeight = 480
+  ClientWidth = 320
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  DesignerMasterStyle = 0
+  object LabelAtlas: TLabel
+    Align = Top
+    AutoSize = True
+    Margins.Left = 4.000000000000000000
+    Position.X = 4.000000000000000000
+    Size.Width = 316.000000000000000000
+    Size.Height = 16.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Atlas:'
+  end
+  object ImageAtlas: TImage
+    MultiResBitmap = <
+      item
+      end>
+    Align = Top
+    Position.Y = 16.000000000000000000
+    Size.Width = 320.000000000000000000
+    Size.Height = 320.000000000000000000
+    Size.PlatformDefault = False
+    WrapMode = Center
+  end
+  object LabelSample: TLabel
+    Align = Top
+    AutoSize = True
+    Margins.Left = 4.000000000000000000
+    Position.X = 4.000000000000000000
+    Position.Y = 336.000000000000000000
+    Size.Width = 316.000000000000000000
+    Size.Height = 16.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Sample:'
+  end
+  object ImageSample: TImage
+    MultiResBitmap = <
+      item
+      end>
+    Align = Top
+    Position.Y = 352.000000000000000000
+    Size.Width = 320.000000000000000000
+    Size.Height = 50.000000000000000000
+    Size.PlatformDefault = False
+    WrapMode = Original
+  end
+end

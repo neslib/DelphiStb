@@ -1,0 +1,49 @@
+object FormMain: TFormMain
+  Left = 0
+  Top = 0
+  Caption = 'StbImage Test'
+  ClientHeight = 480
+  ClientWidth = 320
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object Memo: TMemo
+    Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+    DataDetectorTypes = []
+    ReadOnly = True
+    Align = Client
+    Size.Width = 320.000000000000000000
+    Size.Height = 410.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    Viewport.Width = 316.000000000000000000
+    Viewport.Height = 406.000000000000000000
+  end
+  object Layout1: TLayout
+    Align = Top
+    Size.Width = 320.000000000000000000
+    Size.Height = 70.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 2
+    object Image: TImage
+      MultiResBitmap = <
+        item
+        end>
+      Align = Right
+      Position.X = 220.000000000000000000
+      Size.Width = 100.000000000000000000
+      Size.Height = 70.000000000000000000
+      Size.PlatformDefault = False
+    end
+    object ButtonRunTests: TButton
+      Align = Client
+      Size.Width = 220.000000000000000000
+      Size.Height = 70.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      Text = 'Run Tests'
+      OnClick = ButtonRunTestsClick
+    end
+  end
+end

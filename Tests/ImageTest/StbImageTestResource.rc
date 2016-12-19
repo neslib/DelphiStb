@@ -1,0 +1,7 @@
+BMP RCDATA "Data\\Test.bmp"
+GIF RCDATA "Data\\Test.gif"
+JPG RCDATA "Data\\Test.jpg"
+PBM RCDATA "Data\\Test.pbm"
+PNG RCDATA "Data\\Test.png"
+PSD RCDATA "Data\\Test.psd"
+TGA RCDATA "Data\\Test.tga"

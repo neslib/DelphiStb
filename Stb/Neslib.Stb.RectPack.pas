@@ -133,6 +133,9 @@ procedure stbrp_setup_heuristic(var AContext: TStbrpContext;
       output. See remarks.
     ANumRectangles: the number of rectangles in the ARectangles array.
 
+  Returns:
+    True if all of the rectangles were successfully packed. False otherwise.
+
   In input, each rectangle in ARectangles must have the following fields set:
   * W: width of the rectangle
   * H: height of the rectangle
@@ -155,8 +158,8 @@ procedure stbrp_setup_heuristic(var AContext: TStbrpContext;
   Calling this multiple times with multiple rect arrays will probably produce
   worse packing results than calling it a single time with the full rectangle
   array, but the option is available. }
-procedure stbrp_pack_rects(var AContext: TStbrpContext;
-  const ARectangles: PStbrpRect; const ANumRectangles: Integer); cdecl;
+function stbrp_pack_rects(var AContext: TStbrpContext;
+  const ARectangles: PStbrpRect; const ANumRectangles: Integer): LongBool; cdecl;
   external STB_LIB name _PU + 'stbrp_pack_rects';
 
 implementation

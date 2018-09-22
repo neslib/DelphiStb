@@ -19,10 +19,11 @@ unit Neslib.Stb.ImageResize;
      movie CGI industry, it is still uncommon in the videogame/real-time world.
 
      If you linearly filter non-premultiplied alpha, strange effects occur. (For
-     example, the average of 1% opaque bright green and 99% opaque black
-     produces 50% transparent dark green when non-premultiplied, whereas
-     premultiplied it produces 50% transparent near-black. The former introduces
-     green energy that doesn't exist in the source image.)
+     example, the 50/50 average of 99% transparent bright green and 1%
+     transparent black produces 50% transparent dark green when
+     non-premultiplied, whereas premultiplied it produces 50% transparent
+     near-black. The former introduces green energy that doesn't exist in the
+     source image.)
 
   2. Artists should not edit premultiplied-alpha images; artists want
      non-premultiplied alpha images. Thus, art tools generally output

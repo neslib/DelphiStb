@@ -14,6 +14,4 @@ if [ ! -d $SDK_ROOT ]; then
   exit 1
 fi
 
-clang -c -m32 -O3 -isysroot $SDK_ROOT -I"../C" -mmacosx-version-min=$MIN_VERSION stb.c
-libtool -dynamic stb.o -macosx_version_min $MIN_VERSION -o $OUTPUT -lSystem
-rm stb.o
+clang -dynamiclib -m32 -O3 -isysroot $SDK_ROOT -I"../C" -mmacosx-version-min=$MIN_VERSION -o $OUTPUT stb.c

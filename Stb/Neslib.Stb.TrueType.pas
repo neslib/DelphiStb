@@ -1,21 +1,21 @@
 unit Neslib.Stb.TrueType;
 {< stb_truetype: parse, decode, and rasterize characters from truetype fonts.
 
-
   Simple 3D API (don't ship this, but it's fine for tools and quick start):
   * stbtt_BakeFontBitmap -- bake a font to a bitmap for use as texture
   * stbtt_GetBakedQuad   -- compute quad to draw for a given char
 
   Improved 3D API (more shippable):
   * stbtt_PackBegin
-  * stbtt_PackSetOversample -- for improved quality on small fonts
-  * stbtt_PackFontRanges    -- pack and renders
+  * stbtt_PackSetOversampling -- for improved quality on small fonts
+  * stbtt_PackFontRanges      -- pack and renders
   * stbtt_PackEnd
   * stbtt_GetPackedQuad
 
   "Load" a font file from a memory buffer (you have to keep the buffer loaded):
   * stbtt_InitFont
-  * stbtt_GetFontOffsetForIndex -- use for TTC font collections
+  * stbtt_GetFontOffsetForIndex -- indexing for TTC font collections
+  * stbtt_GetNumberOfFonts()    -- number of fonts for TTC font collections
 
   Render a unicode codepoint to a bitmap:
   * stbtt_GetCodepointBitmap    -- allocates and returns a bitmap
@@ -25,6 +25,7 @@ unit Neslib.Stb.TrueType;
   Character advance/positioning:
   * stbtt_GetCodepointHMetrics
   * stbtt_GetFontVMetrics
+  * stbtt_GetFontVMetricsOS2
   * stbtt_GetCodepointKernAdvance
 
   Starting with version 1.06, the rasterizer was replaced with a new, faster and
@@ -58,15 +59,45 @@ unit Neslib.Stb.TrueType;
     measurement for describing font size, defined as 72 points per inch.
     stb_truetype provides a point API for compatibility. However, true
     "per inch" conventions don't make much sense on computer displays
-    since they different monitors have different number of pixels per
-    inch. For example, Windows traditionally uses a convention that
-    there are 96 pixels per inch, thus making 'inch' measurements have
-    nothing to do with inches, and thus effectively defining a point to
-    be 1.333 pixels. Additionally, the TrueType font data provides
-    an explicit scale factor to scale a given font's glyphs to points,
-    but the author has observed that this scale factor is often wrong
-    for non-commercial fonts, thus making fonts scaled in points
+    since different monitors have different number of pixels per inch. For
+    example, Windows traditionally uses a convention that there are 96 pixels
+    per inch, thus making 'inch' measurements have nothing to do with inches,
+    and thus effectively defining a point to be 1.333 pixels. Additionally, the
+    TrueType font data provides an explicit scale factor to scale a given font's
+    glyphs to points, but the author has observed that this scale factor is
+    often wrong for non-commercial fonts, thus making fonts scaled in points
     according to the TrueType spec incoherently sized in practice.
+
+  @Detailed Usage)
+
+ DETAILED USAGE:
+
+ * Scale: Select how high you want the font to be, in points or pixels. Call
+   ScaleForPixelHeight or ScaleForMappingEmToPixels to compute a scale factor SF
+   that will be used by all other functions.
+
+ * Baseline: You need to select a y-coordinate that is the baseline of where
+   your text will appear. Call GetFontBoundingBox to get the baseline-relative
+   bounding box for all characters. SF*-y0 will be the distance in pixels that
+   the worst-case character could extend above the baseline, so if you want the
+   top edge of characters to appear at the top of the screen where y=0, then you
+   would set the baseline to SF*-y0.
+
+ * Current point: Set the current point where the first character will appear.
+   The first character could extend left of the current point; this is font
+   dependent. You can either choose a current point that is the leftmost point
+   and hope, or add some padding, or check the bounding box or left-side-bearing
+   of the first character to be displayed and set the current point based on
+   that.
+
+ * Displaying a character: Compute the bounding box of the character. It will
+   contain signed values relative to <current_point, baseline>. I.e. if it
+   returns x0,y0,x1,y1,  then the character should be displayed in the rectangle
+   from <current_point+SF*x0, baseline+SF*y0> to
+   <current_point+SF*x1,baseline+SF*y1).
+
+  * Advancing for the next character: Call GlyphHMetrics, and compute
+    'current_point += SF * advance'.
 
   @bold(Advanced Usage)
 
@@ -101,6 +132,14 @@ interface
 uses
   Neslib.Stb.Common,
   Neslib.Stb.RectPack;
+
+type
+  { Private structure }
+  TStbttBuf = record
+    Data: Pointer;
+    Cursor: Integer;
+    Size: Integer;
+  end;
 
 (*** Texture Baking - Simple API ***)
 
@@ -233,10 +272,27 @@ type
   PStbttPackContext = ^TStbttPackContext;
 
 type
-  { This is an opaque structure that you shouldn't mess with which holds
-    information about a font. }
+  { The following structure is defined publically so you can declare one on
+    the stack or as a global or etc, but you should treat it as opaque. }
   TStbttFontInfo = record
-    _Data: array [0..(SizeOf(Pointer) * 2) + (SizeOf(Integer) * 10) - 1] of Byte;
+    UserData: Pointer;
+    Data: Pointer;             // pointer to .ttf file
+    FontStart: Integer;        // offset of start of font
+
+    NumGlyphs: Integer;        // number of glyphs, needed for range checking
+
+    // table locations as offset from start of .ttf
+    Loca, Head, Glyf, Hhea, Hmtx, Kern, Gpos: Integer;
+
+    IndexMap: Integer;         // a cmap mapping for our chosen character encoding
+    IndexToLocFormat: Integer; // format needed to map from glyph index to glyph
+
+    Cff: TStbttBuf;            // cff font data
+    CharStrings: TStbttBuf;    // the charstring index
+    Gsubrs: TStbttBuf;         // global charstring subroutines index
+    Subrs: TStbttBuf;          // private charstring subroutines index
+    FontDicts: TStbttBuf;      // array of font dicts
+    Fdselect: TStbttBuf;       // map from glyph to fontdict
   end;
   PStbttFontInfo = ^TStbttFontInfo;
 
@@ -435,6 +491,23 @@ function stbtt_PackFontRangesRenderIntoRects(var AContext: TStbttPackContext;
   const ANumRanges: Integer; const ARects: PStbrpRect): LongBool; cdecl;
   external STB_LIB name _PU + 'stbtt_PackFontRangesRenderIntoRects';
 
+(*** Font Loang ***)
+
+{ This function will determine the number of fonts in a font file.
+
+  Parameters:
+    ATtfData: pointer to the TTF data.
+
+  Returns:
+    The number of fonts.
+
+  TrueType collection (.ttc) files may contain multiple fonts, while TrueType
+  font (.ttf) files only contain one font. The number of fonts can be used for
+  indexing with the previous function where the index is between zero and one
+  less than the total fonts. If an error occurs, -1 is returned. }
+function stbtt_GetNumberOfFonts(const ATtfData: Pointer): Integer; cdecl;
+  external STB_LIB name _PU + 'stbtt_GetNumberOfFonts';
+
 { Get the offset of a font in a .ttf/.ttc file at a given index.
 
   Parameters:
@@ -449,8 +522,7 @@ function stbtt_PackFontRangesRenderIntoRects(var AContext: TStbttPackContext;
   a given index.
 
   A regular .ttf file will only define one font and it always be at offset 0, so
-  it will return '0' for index 0, and -1 for all other indices. You can just
-  skip this step if you know it's that kind of font. }
+  it will return '0' for index 0, and -1 for all other indices. }
 function stbtt_GetFontOffsetForIndex(const ATtfData: Pointer;
   const AIndex: Integer): Integer; cdecl;
   external STB_LIB name _PU + 'stbtt_GetFontOffsetForIndex';
@@ -535,6 +607,23 @@ function stbtt_ScaleForMappingEmToPixels(var AInfo: TStbttFontInfo;
 procedure stbtt_GetFontVMetrics(var AInfo: TStbttFontInfo;
   out AAscent, ADescent, ALineGap: Integer); cdecl;
   external STB_LIB name _PU + 'stbtt_GetFontVMetrics';
+
+{ Analogous to GetFontVMetrics, but returns the "typographic" values from the
+  OS/2 table (specific to MS/Windows TTF files).
+
+  Parameters:
+    AInfo: font information (acquired with stbtt_InitFont).
+    ATypeAscent: is set to the coordinate above the baseline the font extends.
+    ATypeDescent: is set to the coordinate below the baseline the font extends
+      (i.e. it is typically negative).
+    ATypeLineGap: is set to the spacing between one row's descent and the next
+      row's ascent.
+
+  Returns:
+    True on success (table present), False on failure. }
+function stbtt_GetFontVMetricsOS2(var AInfo: TStbttFontInfo;
+  out ATypoAscent, ATypoDescent, ATypoLineGap: Integer): LongBool; cdecl;
+  external STB_LIB name _PU + 'stbtt_GetFontVMetricsOS2';
 
 { Retrieves the bounding box around all possible characters;
 
@@ -860,6 +949,14 @@ procedure stbtt_MakeCodepointBitmapSubpixel(var AInfo: TStbttFontInfo;
   const AXScale, AYScale, AXShift, AYShift: Single; const ACodepoint: Integer); cdecl;
   external STB_LIB name _PU + 'stbtt_MakeCodepointBitmapSubpixel';
 
+{ Same as stbtt_MakeCodepointBitmapSubpixel, but prefiltering is performed (see
+  stbtt_PackSetOversampling) }
+procedure stbtt_MakeCodepointBitmapSubpixelPrefilter(var AInfo: TStbttFontInfo;
+  const ABitmap: Pointer; const ABitmapWidth, ABitmapHeight, ABitmapStride: Integer;
+  const AXScale, AYScale, AXShift, AYShift: Single; const AOversampleX,
+  AOversampleY: Integer; out ASubX, ASubY: Single; const ACodepoint: Integer); cdecl;
+  external STB_LIB name _PU + 'stbtt_MakeCodepointBitmapSubpixelPrefilter';
+
 { Get the bounding box of the bitmap centered around the glyph origin.
 
   Parameters:
@@ -1003,6 +1100,14 @@ procedure stbtt_MakeGlyphBitmapSubpixel(var AInfo: TStbttFontInfo;
   const AXScale, AYScale, AXShift, AYShift: Single; const AGlyphIndex: Integer); cdecl;
   external STB_LIB name _PU + 'stbtt_MakeGlyphBitmapSubpixel';
 
+{ Same as stbtt_MakeGlyphBitmapSubpixel, but prefiltering is performed (see
+  stbtt_PackSetOversampling) }
+procedure stbtt_MakeGlyphBitmapSubpixelPrefilter(var AInfo: TStbttFontInfo;
+  const ABitmap: Pointer; const ABitmapWidth, ABitmapHeight, ABitmapStride: Integer;
+  const AXScale, AYScale, AXShift, AYShift: Single; const AOversampleX,
+  AOversampleY: Integer; out ASubX, ASubY: single; const AGlyphIndex: Integer); cdecl;
+  external STB_LIB name _PU + 'stbtt_MakeGlyphBitmapSubpixelPrefilter';
+
 { Get the bounding box of the bitmap centered around the glyph origin.
 
   Parameters:
@@ -1089,6 +1194,81 @@ procedure stbtt_Rasterize(var ABitmap: TStbttBitmap;
   const AXOffset, AYOffset: Integer; const AFlipVertical: LongBool = False;
   const AReserved: Pointer = nil); cdecl;
   external STB_LIB name _PU + 'stbtt_Rasterize';
+
+(** Signed Distance Function (or Field) rendering **)
+
+{ Frees the SDF bitmap allocated below.
+
+  Parameter
+    ABitmap: the bitmap returned by stbtt_GetGlyphSDF or stbtt_GetCodepointSDF.
+    AUserdata: application defined userdata }
+procedure stbtt_FreeSDF(const ABitmap, AUserdata: Pointer); cdecl;
+  external STB_LIB name _PU + 'stbtt_FreeSDF';
+
+{ These functions compute a discretized SDF field for a single character,
+  suitable for storing in a single-channel texture, sampling with bilinear
+  filtering, and testing against larger than some threshhold to produce scalable
+  fonts.
+
+  Parameters:
+    AInfo: the font
+    AScale: controls the size of the resulting SDF bitmap, same as it would be
+      creating a regular bitmap
+    AGlyph/ACodepoint: the character to generate the SDF for
+    APadding: extra "pixels" around the character which are filled with the
+      distance to the character (not 0), which allows effects like bit outlines
+    AOnEdgeValue: value 0-255 to test the SDF against to reconstruct the
+      character (i.e. the isocontour of the character)
+    APixelDistScale: what value the SDF should increase by when moving one SDF
+      "pixel" away from the edge (on the 0..255 scale). If positive,
+      > AOnEdgeValue is inside; if negative, < AOnEdgeValue is inside.
+    AWidth, AHeight: output height & width of the SDF bitmap (including padding)
+    AXOff, AYOff: output origin of the character
+
+  Returns:
+    A 2D array of bytes 0..255, AWidth * AHeight in size
+
+  APixelDistScale & AOnEdgeValue are a scale & bias that allows you to make
+  optimal use of the limited 0..255 for your application, trading off precision
+  and special effects. SDF values outside the range 0..255 are clamped to
+  0..255.
+
+  Example:
+    AScale = stbtt_ScaleForPixelHeight(22)
+    APadding = 5
+    AOnEdgeValue = 180
+    APixelDistScale = 180/5.0 = 36.0
+
+  This will create an SDF bitmap in which the character is about 22 pixels high
+  but the whole bitmap is about 22+5+5=32 pixels high. To produce a filled
+  shape, sample the SDF at each pixel and fill the pixel if the SDF value is
+  greater than or equal to 180/255. (You'll actually want to antialias, which is
+  beyond the scope of this example.) Additionally, you can compute offset
+  outlines (e.g. to stroke the character border inside & outside, or only
+  outside). For example, to fill outside the character up to 3 SDF pixels, you
+  would compare against (180-36.0*3)/255 = 72/255. The above choice of variables
+  maps a range from 5 pixels outside the shape to 2 pixels inside the shape to
+  0..255; this is intended primarily for apply outside effects only (the
+  interior range is needed to allow proper antialiasing of the font at *smaller*
+  sizes)
+
+  The function computes the SDF analytically at each SDF pixel, not by e.g.
+  building a higher-res bitmap and approximating it. In theory the quality
+  should be as high as possible for an SDF of this size & representation, but
+  unclear if this is true in practice (perhaps building a higher-res bitmap and
+  computing from that can allow drop-out prevention).
+
+  The algorithm has not been optimized at all, so expect it to be slow if
+  computing lots of characters or very large sizes. }
+function stbtt_GetGlyphSDF(var AInfo: TStbttFontInfo; const AScale: Single;
+  const AGlyph, APadding: Integer; const AOnEdgeValue: Byte;
+  const APixelDistScale: Single; out AWidth, AHeight, AXOff, AYOff: Integer): Pointer; cdecl;
+  external STB_LIB name _PU + 'stbtt_GetGlyphSDF';
+
+function stbtt_GetCodepointSDF(var AInfo: TStbttFontInfo; const AScale: Single;
+  const ACodepoint, APadding: Integer; const AOnEdgeValue: Byte;
+  const APixelDistScale: Single; out AWidth, AHeight, AXOff, AYOff: Integer): Pointer; cdecl;
+  external STB_LIB name _PU + 'stbtt_GetCodepointSDF';
 
 {$MINENUMSIZE 4}
 type

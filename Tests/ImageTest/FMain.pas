@@ -287,13 +287,6 @@ begin
     Recon := stbi_load_from_callbacks(Callbacks, Stream, ReconWidth, ReconHeight, ReconComponents, 0);
     ReconComponents := 3; { TGA actually outputs 4 bytes per pixel, but the test function expects 3 }
     CheckImage('TestWrite', 'TGA', Recon, ReconWidth, ReconHeight, ReconComponents, 0);
-
-    { HDR }
-    Stream.Position := 0;
-    stbi_write_hdr_to_func(WriteFunc, Stream, Width, Height, Components, Image);
-    Stream.Position := 0;
-    Recon := stbi_load_from_callbacks(Callbacks, Stream, ReconWidth, ReconHeight, ReconComponents, 0);
-    CheckImage('TestWrite', 'HDR', Recon, ReconWidth, ReconHeight, ReconComponents, 0);
   finally
     Stream.Free;
     stbi_image_free(Image);

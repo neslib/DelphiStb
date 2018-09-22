@@ -7,7 +7,7 @@ unit Neslib.Stb.Image;
     avoid problematic images and only need the trivial interface
   * JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock
     IJG lib)
-  * PNG 1/2/4/8-bit-per-channel (16 bpc not supported)
+  * PNG 1/2/4/8/16-bit-per-channel
   * TGA (not sure what subset, if a subset)
   * BMP non-1bpp, non-RLE
   * PSD (composited view only, no extra channels, 8/16 bit-per-channel)
@@ -20,10 +20,8 @@ unit Neslib.Stb.Image;
   * SIMD acceleration on x86/x64 (SSE2) and ARM (NEON)
 
   Limitations:
-  * no 16-bit-per-channel PNG
   * no 12-bit-per-channel JPEG
   * no JPEGs with arithmetic coding
-  * no 1-bit BMP
   * GIF always returns 4 components per pixel
 
   The return value from an image loader is a pointer which points to the pixel
@@ -34,13 +32,13 @@ unit Neslib.Stb.Image;
   components; the first pixel pointed to is top-left-most in the image. There is
   no padding between image scanlines or between pixels, regardless of format.
 
-  The number of components <tt>AComponents</tt> is <tt>ARequestedComponent</tt>
-  if <tt>ARequestedComponent</tt> is non-zero, or <tt>AComponents</tt>
-  otherwise. If <tt>ARequestedComponent</tt> is non-zero, <tt>AComponents</tt>
+  The number of components <tt>AComponents</tt> is <tt>ADesiredChannels</tt>
+  if <tt>ADesiredChannels</tt> is non-zero, or <tt>AChannelsInFile</tt>
+  otherwise. If <tt>ADesiredChannels</tt> is non-zero, <tt>AChannelsInFile</tt>
   has the number of components that @bold(would) have been output otherwise.
-  E.g. if you set <tt>ARequestedComponent</tt> to 4, you will always get RGBA
-  output, but you can check <tt>AComponents</tt> to see if it's trivially opaque
-  because e.g. there were only 3 channels in the source image.
+  E.g. if you set <tt>ADesiredChannels</tt> to 4, you will always get RGBA
+  output, but you can check <tt>AChannelsInFile</tt> to see if it's trivially
+  opaque because e.g. there were only 3 channels in the source image.
 
   An output image with N components has the following components interleaved
   in this order in each pixel:
@@ -50,9 +48,9 @@ unit Neslib.Stb.Image;
   * N=4: red, green, blue, alpha
 
   If image loading fails for any reason, the return value will be nil, and
-  <tt>AWidth</tt>, <tt>AHeight</tt>, <tt>AComponents</tt> will be unchanged. The
-  function <tt>stbi_failure_reason</tt> can be queried for an extremely brief,
-  end-user unfriendly explanation of why the load failed.
+  <tt>AWidth</tt>, <tt>AHeight</tt>, <tt>AChannelsInFile</tt> will be unchanged.
+  The function <tt>stbi_failure_reason</tt> can be queried for an extremely
+  brief, end-user unfriendly explanation of why the load failed.
 
   Paletted PNG, BMP, GIF, and PIC images are automatically depalettized.
 
@@ -73,10 +71,6 @@ unit Neslib.Stb.Image;
 
   On x86, SSE2 will automatically be used when available based on a run-time
   test; if not, the generic C versions are used as a fall-back.
-
-  The output of the JPEG decoder is slightly different from versions where SIMD
-  support was introduced (that is, for versions before 1.49). The difference is
-  only +-1 in the 8-bit RGB channels, and only on a small fraction of pixels.
 
   @bold(HDR image support)
 
@@ -164,13 +158,13 @@ type
     AFilename: name of the file containing the image.
     AWidth: is set to the width of the image.
     AHeight: is set to the height of the image.
-    AComponents: is set to the number of components in the image.
-    ARequestedComponents: number of components you want to return.
+    AChannelsInFile: is set to the number of components in the image.
+    ADesiredChannels: number of components you want to return.
 
   Returns:
     A pointer to the image data. You must free this later with stbi_image_free. }
 function stbi_load(const AFilename: MarshaledAString; out AWidth, AHeight,
-  AComponents: Integer; const ARequestedComponents: Integer = 0): Pointer; cdecl;
+  AChannelsInFile: Integer; const ADesiredChannels: Integer = 0): Pointer; cdecl;
   external STB_LIB name _PU + 'stbi_load';
 
 { Loads an image from memory.
@@ -180,14 +174,14 @@ function stbi_load(const AFilename: MarshaledAString; out AWidth, AHeight,
     ALen: number of bytes in ABuffer.
     AWidth: is set to the width of the image.
     AHeight: is set to the height of the image.
-    AComponents: is set to the number of components in the image.
-    ARequestedComponents: number of components you want to return.
+    AChannelsInFile: is set to the number of components in the image.
+    ADesiredChannels: number of components you want to return.
 
   Returns:
     A pointer to the image data. You must free this later with stbi_image_free. }
 function stbi_load_from_memory(const ABuffer: Pointer; const ALen: Integer;
-  out AWidth, AHeight, AComponents: Integer;
-  const ARequestedComponents: Integer = 0): Pointer; cdecl;
+  out AWidth, AHeight, AChannelsInFile: Integer;
+  const ADesiredChannels: Integer = 0): Pointer; cdecl;
   external STB_LIB name _PU + 'stbi_load_from_memory';
 
 { Loads an image from callbacks.
@@ -197,14 +191,14 @@ function stbi_load_from_memory(const ABuffer: Pointer; const ALen: Integer;
     AUserData: user-defined data that will be passed to the callbacks.
     AWidth: is set to the width of the image.
     AHeight: is set to the height of the image.
-    AComponents: is set to the number of components in the image.
-    ARequestedComponents: number of components you want to return.
+    AChannelsInFile: is set to the number of components in the image.
+    ADesiredChannels: number of components you want to return.
 
   Returns:
     A pointer to the image data. You must free this later with stbi_image_free. }
 function stbi_load_from_callbacks(var ACallbacks: TStbiIOCallbacks;
-  const AUserData: Pointer; out AWidth, AHeight, AComponents: Integer;
-  const ARequestedComponents: Integer = 0): Pointer; cdecl;
+  const AUserData: Pointer; out AWidth, AHeight, AChannelsInFile: Integer;
+  const ADesiredChannels: Integer = 0): Pointer; cdecl;
   external STB_LIB name _PU + 'stbi_load_from_callbacks';
 
 { Loads an image from a file. The image data is returned as (linear) floating-
@@ -215,13 +209,13 @@ function stbi_load_from_callbacks(var ACallbacks: TStbiIOCallbacks;
     AFilename: name of the file containing the image.
     AWidth: is set to the width of the image.
     AHeight: is set to the height of the image.
-    AComponents: is set to the number of components in the image.
-    ARequestedComponents: number of components you want to return.
+    AChannelsInFile: is set to the number of components in the image.
+    ADesiredChannels: number of components you want to return.
 
   Returns:
     A pointer to the image data. You must free this later with stbi_image_free. }
 function stbi_loadf(const AFilename: MarshaledAString; out AWidth, AHeight,
-  AComponents: Integer; const ARequestedComponents: Integer = 0): Pointer; cdecl;
+  AChannelsInFile: Integer; const ADesiredChannels: Integer = 0): Pointer; cdecl;
   external STB_LIB name _PU + 'stbi_loadf';
 
 { Loads an image from memory. The image data is returned as (linear) floating-
@@ -233,14 +227,14 @@ function stbi_loadf(const AFilename: MarshaledAString; out AWidth, AHeight,
     ALen: number of bytes in ABuffer.
     AWidth: is set to the width of the image.
     AHeight: is set to the height of the image.
-    AComponents: is set to the number of components in the image.
-    ARequestedComponents: number of components you want to return.
+    AChannelsInFile: is set to the number of components in the image.
+    ADesiredChannels: number of components you want to return.
 
   Returns:
     A pointer to the image data. You must free this later with stbi_image_free. }
 function stbi_loadf_from_memory(const ABuffer: Pointer; const ALen: Integer;
-  out AWidth, AHeight, AComponents: Integer;
-  const ARequestedComponents: Integer = 0): Pointer; cdecl;
+  out AWidth, AHeight, AChannelsInFile: Integer;
+  const ADesiredChannels: Integer = 0): Pointer; cdecl;
   external STB_LIB name _PU + 'stbi_loadf_from_memory';
 
 { Loads an image from callbacks. The image data is returned as (linear)
@@ -252,14 +246,14 @@ function stbi_loadf_from_memory(const ABuffer: Pointer; const ALen: Integer;
     AUserData: user-defined data that will be passed to the callbacks.
     AWidth: is set to the width of the image.
     AHeight: is set to the height of the image.
-    AComponents: is set to the number of components in the image.
-    ARequestedComponents: number of components you want to return.
+    AChannelsInFile: is set to the number of components in the image.
+    ADesiredChannels: number of components you want to return.
 
   Returns:
     A pointer to the image data. You must free this later with stbi_image_free. }
 function stbi_loadf_from_callbacks(var ACallbacks: TStbiIOCallbacks;
-  const AUserData: Pointer; out AWidth, AHeight, AComponents: Integer;
-  const ARequestedComponents: Integer = 0): Pointer; cdecl;
+  const AUserData: Pointer; out AWidth, AHeight, AChannelsInFile: Integer;
+  const ADesiredChannels: Integer = 0): Pointer; cdecl;
   external STB_LIB name _PU + 'stbi_loadf_from_callbacks';
 
 { HDR files will be automatically remapped to LDR files using a gamma of 2.2.

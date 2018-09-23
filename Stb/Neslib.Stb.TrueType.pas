@@ -538,7 +538,7 @@ function stbtt_GetFontOffsetForIndex(const ATtfData: Pointer;
 
   Returns:
     True on success. False on failure. }
-function stbtt_InitFont(out AInfo: TStbttFontInfo; const ATtfData: Pointer;
+function stbtt_InitFont(var AInfo: TStbttFontInfo; const ATtfData: Pointer;
   const AOffset: Integer): LongBool; cdecl;
   external STB_LIB name _PU + 'stbtt_InitFont';
 
